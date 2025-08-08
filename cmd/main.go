@@ -10,6 +10,7 @@ import (
 	"github.com/albus-droid/Capstone-Project-Backend/internal/db"
 	"github.com/albus-droid/Capstone-Project-Backend/internal/auth"
 	"github.com/albus-droid/Capstone-Project-Backend/internal/image_store"
+	"github.com/albus-droid/Capstone-Project-Backend/internal/geo"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,6 +38,10 @@ func main() {
 	listing.Migrate(db) // optional for dev
 	lsvc := listing.NewPostgresService(db)
 	listing.RegisterRoutes(r, lsvc, minioClient)
+
+	// Geo routes (KD-tree backed by Redis)
+	geosvc := geo.NewService("redis:6379", "", 0)
+	geo.RegisterRoutes(r, geosvc)
 
 	// Order
 	order.Migrate(db) // optional for dev

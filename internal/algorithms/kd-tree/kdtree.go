@@ -10,6 +10,12 @@ type point2D struct{
 	X, Y float64
 }
 
+// Public Point type for external usage (longitude X, latitude Y)
+type Point struct {
+	Lon float64 `json:"lon"`
+	Lat float64 `json:"lat"`
+}
+
 // finding distance using haversines formula
 func (p point2D) Distance(q point2D) float64 {
 	const R = 6371.0 // Earth radius in kilometers
@@ -48,6 +54,15 @@ func New(points []point2D) *KDTree {
 	return &KDTree{root: build(points, 0)}
 }
 
+// NewFromPoints builds a KDTree from exported Point values.
+func NewFromPoints(points []Point) *KDTree {
+	internal := make([]point2D, len(points))
+	for i, p := range points {
+		internal[i] = point2D{X: p.Lon, Y: p.Lat}
+	}
+	return New(internal)
+}
+
 // build recursively constructs a balanced KD-tree by median split.
 // axis toggles between 0 (X) and 1 (Y).
 func build(points []point2D, axis int) *node {
@@ -78,6 +93,17 @@ func (t *KDTree) RangeSearch(center point2D, radiusKm float64) []point2D {
 	var out []point2D
 	search(t.root, center, radiusKm, &out)
 	return out
+}
+
+// RangeSearchKm returns all exported Points within radiusKm of the given lon/lat.
+func (t *KDTree) RangeSearchKm(lon, lat, radiusKm float64) []Point {
+	center := point2D{X: lon, Y: lat}
+	pts := t.RangeSearch(center, radiusKm)
+	res := make([]Point, len(pts))
+	for i, p := range pts {
+		res[i] = Point{Lon: p.X, Lat: p.Y}
+	}
+	return res
 }
 
 // search is the recursive helper that visits nodes and prunes subtrees when possible.
