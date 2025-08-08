@@ -4,9 +4,10 @@ import (
     "net/http"
     "os"
     "fmt"
-    "time"
+
+    "io"
     "github.com/gin-gonic/gin"
-   	"github.com/albus-droid/Capstone-Project-Backend/internal/auth"
+    	"github.com/albus-droid/Capstone-Project-Backend/internal/auth"
     "github.com/minio/minio-go/v7"
 )
 
@@ -43,14 +44,32 @@ func RegisterRoutes(r *gin.Engine, svc Service, minioClient *minio.Client) {
         }
         objectName := fmt.Sprintf("listings/%s/%s", listingID, filename)
 
-        signedURL, err := minioClient.PresignedGetObject(
-            c, bucket, objectName, time.Hour, nil,
-        )
+        // Stream the object via backend to avoid exposing MinIO host and CORS issues
+        obj, err := minioClient.GetObject(c.Request.Context(), bucket, objectName, minio.GetObjectOptions{})
         if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate signed URL"})
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "could not fetch image"})
             return
         }
-        c.JSON(http.StatusOK, gin.H{"signed_url": signedURL.String()})
+        defer obj.Close()
+
+        // Fetch metadata to set headers
+        info, err := obj.Stat()
+        if err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "image not found"})
+            return
+        }
+
+        if info.ContentType != "" {
+            c.Header("Content-Type", info.ContentType)
+        } else {
+            c.Header("Content-Type", "application/octet-stream")
+        }
+        c.Header("Cache-Control", "public, max-age=3600")
+        c.Status(http.StatusOK)
+        if _, err := io.Copy(c.Writer, obj); err != nil {
+            // Best-effort; connection might be closed by client
+            return
+        }
     })
 
     protected := r.Group("/listings")
@@ -115,7 +134,7 @@ func RegisterRoutes(r *gin.Engine, svc Service, minioClient *minio.Client) {
         contentType := header.Header.Get("Content-Type")
 
         _, err = minioClient.PutObject(
-            c, bucket, objectName, file, header.Size,
+            c.Request.Context(), bucket, objectName, file, header.Size,
             minio.PutObjectOptions{ContentType: contentType},
         )
         if err != nil {
