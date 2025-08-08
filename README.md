@@ -277,13 +277,24 @@ GET /sellers HTTP/1.1
 
 ---
 
-## 3. Listings (Protected)
+## 3. Listings
 
-> All endpoints below require:
+- Public (no auth):
+  - `GET /listings`
+  - `GET /listings/{id}`
+  - `GET /listings/{id}/image/{filename}`
+- Protected (requires seller JWT):
+  - `POST /listings`
+  - `PUT /listings/{id}`
+  - `DELETE /listings/{id}`
+  - `POST /listings/{id}/image`
+
+> Protected endpoints require:
 >
 > ```
 > Authorization: Bearer <SELLER_JWT_TOKEN>
 > ```
+---
 
 ### 3.1 Create Listing
 
@@ -341,19 +352,12 @@ Content-Type: application/json
 ### 3.2 Get Listing by ID
 
 * **Endpoint:** `GET /listings/{id}`
-* **Description:** Retrieve a listing by its ID.
-
-**Headers:**
-
-| Name          | Value                 |
-| ------------- | --------------------- |
-| Authorization | Bearer `<SELLER_JWT>` |
+* **Description:** Retrieve a listing by its ID. (Public)
 
 **Example Request:**
 
 ```http
 GET /listings/abc123-def456 HTTP/1.1
-Authorization: Bearer eyJhbGciOiJI…
 ```
 
 **200 OK:**
@@ -376,13 +380,7 @@ Authorization: Bearer eyJhbGciOiJI…
 ### 3.3 List Listings (Optional Filter)
 
 * **Endpoint:** `GET /listings`
-* **Description:** Get all listings or filter by seller.
-
-**Headers:**
-
-| Name          | Value                 |
-| ------------- | --------------------- |
-| Authorization | Bearer `<SELLER_JWT>` |
+* **Description:** Get all listings or filter by seller. (Public)
 
 **Query Parameters:**
 
@@ -394,7 +392,6 @@ Authorization: Bearer eyJhbGciOiJI…
 
 ```http
 GET /listings?sellerId=seller-uuid HTTP/1.1
-Authorization: Bearer eyJhbGciOiJI…
 ```
 
 **200 OK:**
@@ -544,15 +541,11 @@ curl -X POST \
 
 ---
 
-## **3.7 Get Signed Image URL (Protected)**
+## **3.7 Get Listing Image (Public)**
 
 * **Endpoint:** `GET /listings/{id}/image/{filename}`
 
-* **Description:** Get a signed URL for viewing a listing image (valid for 1 hour).
-
-* **Headers:**
-
-  * `Authorization: Bearer <SELLER_JWT>`
+* **Description:** Streams the image bytes with appropriate `Content-Type`. Use this URL directly in an `<img src>` in your frontend, or download it with a client. No authorization required.
 
 * **Path Parameters:**
 
@@ -561,25 +554,23 @@ curl -X POST \
   | id       | string | Listing UUID       |
   | filename | string | Name of image file |
 
-**Example Request:**
+**Example Request (browser/img tag):**
 
-```http
-GET /listings/abc123-def456/image/apples.jpg HTTP/1.1
-Authorization: Bearer eyJhbGciOiJI…
+```html
+<img src="/listings/abc123-def456/image/apples.jpg" alt="Listing image" />
+```
+
+**Example Request (curl download):**
+
+```bash
+curl -L -o apples.jpg http://localhost:8000/listings/abc123-def456/image/apples.jpg
 ```
 
 **Response (`200 OK`):**
-
-```json
-{
-  "signed_url": "http://localhost:9000/listing-images/listings/abc123-def456/apples.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=..."
-}
-```
-
-* Use this signed URL as the `src` in an `<img>` tag in your frontend.
+- Body: Binary image data
+- Headers: `Content-Type: image/jpeg|image/png`, `Cache-Control: public, max-age=3600`
 
 ---
-
 
 ## 4. Orders (Protected)
 
@@ -683,7 +674,7 @@ Authorization: Bearer eyJhbGci...
 ### 4.4 Accept Order
 
 * **Endpoint:** `PATCH /orders/{id}/accept`
-* **Description:** Mark an order as accepted (by seller or owner).
+* **Description:** Mark an order as accepted (only the user who placed the order can perform this action).
 
 **Example Request:**
 
@@ -703,7 +694,7 @@ Authorization: Bearer eyJhbGci...
 ### 4.5 Complete Order
 
 * **Endpoint:** `PATCH /orders/{id}/complete`
-* **Description:** Mark an order as completed.
+* **Description:** Mark an order as completed (only the user who placed the order can perform this action).
 
 **Example Request:**
 
