@@ -671,19 +671,24 @@ Authorization: Bearer eyJhbGci...
 
 ---
 
-### 4.4 Accept Order
+### 4.4 Accept Order  – *Seller Only (Protected)*
 
 * **Endpoint:** `PATCH /orders/{id}/accept`
-* **Description:** Mark an order as accepted (only the user who placed the order can perform this action).
+* **Description:** Mark an order as accepted.  Only the seller associated with the order can perform this action; the endpoint no longer checks the buyer’s email.  When invoked the service:
+
+  1. Reads the order record and parses its listing IDs.
+  2. Decrements the `leftSize` of each listing in the order by one.
+  3. Updates the order’s `status` to `accepted`.
+  4. Emits an `OrderAccepted` event which is forwarded to any clients connected via the notifications stream.
 
 **Example Request:**
 
 ```http
 PATCH /orders/order-uuid/accept HTTP/1.1
-Authorization: Bearer eyJhbGci...
+Authorization: Bearer <SELLER_JWT_TOKEN>
 ```
 
-**Example Response** (`200 OK`):
+**Example Response (`200 OK`):**
 
 ```json
 { "message": "order accepted" }
@@ -691,22 +696,29 @@ Authorization: Bearer eyJhbGci...
 
 ---
 
-### 4.5 Complete Order
+### 5. Notifications (Protected)
 
-* **Endpoint:** `PATCH /orders/{id}/complete`
-* **Description:** Mark an order as completed (only the user who placed the order can perform this action).
+#### 5.1 Real‑time Event Stream
 
-**Example Request:**
+* **Endpoint:** `GET /events/stream`
+* **Description:** Subscribe to real‑time order notifications via server‑sent events (SSE).  SSE is a browser API that keeps a persistent HTTP connection open so the server can push updates to the client.  This endpoint streams events of type `OrderPlaced` and `OrderAccepted`.  Each event’s `data` field contains the order object.
 
-```http
-PATCH /orders/order-uuid/complete HTTP/1.1
-Authorization: Bearer eyJhbGci...
+**Headers:**
+
+| Name          | Value                |
+| ------------- | -------------------- |
+| Authorization | Bearer `<JWT_TOKEN>` |
+
+**Example Response:** (simplified SSE stream)
+
+```
+event: OrderPlaced
+data: {"id":"...","sellerId":"...","user_email":"...","listingIds":["..."],"total":19.98,"status":"pending"}
+
+event: OrderAccepted
+data: {"id":"...","sellerId":"...","user_email":"...","listingIds":["..."],"total":19.98,"status":"accepted"}
 ```
 
-**Example Response** (`200 OK`):
-
-```json
-{ "message": "order completed" }
-```
+To consume this stream in a browser or Next.js application you can use the `EventSource` API.  See the attached documentation file for a detailed example of subscribing to `OrderPlaced` and `OrderAccepted` events and updating your UI accordingly.
 
 ---
