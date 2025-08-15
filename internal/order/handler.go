@@ -1,13 +1,13 @@
 package order
 
 import (
-	"net/http"
-	"log"
 	"encoding/json"
 	"errors"
 	"github.com/albus-droid/Capstone-Project-Backend/internal/auth"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
+	"log"
+	"net/http"
 )
 
 var ErrOrderAlreadyExists = errors.New("order already exists")
@@ -38,16 +38,16 @@ func RegisterRoutes(r *gin.Engine, svc Service) {
 			Total:      payload.Total,
 		}
 		if err := svc.Create(o); err != nil {
-    		switch {
-    		case errors.Is(err, ErrOrderAlreadyExists):
-        		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-    		default:
-        		log.Printf("create order failed: %v", err)
-        		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-    		}
-    		return
-    	}
-    	c.JSON(http.StatusCreated, o) // return the order (or a message if you prefer)
+			switch {
+			case errors.Is(err, ErrOrderAlreadyExists):
+				c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			default:
+				log.Printf("create order failed: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
+			return
+		}
+		c.JSON(http.StatusCreated, o) // return the order (or a message if you prefer)
 	})
 
 	// ─────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ func RegisterRoutes(r *gin.Engine, svc Service) {
 	})
 
 	// ─────────────────────────────────────────────────────────────
-	// PATCH /orders/:id/accept
+	// PATCH /orders/:id/accept – seller accepts an order
 	// ─────────────────────────────────────────────────────────────
 	grp.PATCH("/:id/accept", func(c *gin.Context) {
 		id := c.Param("id")
